@@ -19,3 +19,7 @@ steps:
   - script: |
       pytest -v
     displayName: 'Run unit tests'
+
+  - script: |
+      docker build -t complete-azure-devops:$(Build.BuildId) .
+    displayName: 'Build Docker image'
