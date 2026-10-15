@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d1b">
+  <meta name="description"
+        content="DevOps engineer portfolio — cloud, automation, and CI/CD.">
+  <title>{{ portfolio.name }} | DevOps Engineer</title>
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="navbar">
+    <a class="brand" href="#home">AA<span>.</span></a>
+
+    <nav aria-label="Main navigation">
+      <a href="#about">About</a>
+      <a href="#skills">Skills</a>
+      <a href="#projects">Projects</a>
+      <a class="nav-contact" href="#contact">Contact ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero section" id="home">
+      <div class="hero-copy">
+        <div class="availability">
+          <span class="pulse"></span>
+          CLOUD · AUTOMATION · RELIABILITY
+        </div>
+
+        <p class="eyebrow">HELLO, WORLD. I'M</p>
+        <h1>{{ portfolio.name }}<br>
+          <span class="gradient-text">DevOps Engineer.</span>
+        </h1>
+
+        <p class="hero-description">{{ portfolio.intro }}</p>
+
+        <div class="hero-actions">
+          <a class="button primary" href="#projects">Explore my work ↘</a>
+          <a class="button secondary" href="#about">About me</a>
+        </div>
+
+        <div class="hero-meta">
+          <span><strong>{{ portfolio.experience }}</strong> experience</span>
+          <span class="meta-divider"></span>
+          <span>Cloud-first mindset</span>
+        </div>
+      </div>
+
+      <div class="terminal-card" aria-label="DevOps terminal illustration">
+        <div class="terminal-header">
+          <div class="window-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span>~/portfolio</span>
+          <span class="terminal-status">● online</span>
+        </div>
+
+        <div class="terminal-body">
+          <p><span class="prompt">$</span> whoami</p>
+          <p class="terminal-output">devops-engineer</p>
+
+          <p><span class="prompt">$</span> cat mission.txt</p>
+          <p class="terminal-output">
+            Automate everything.<br>
+            Ship with confidence.<br>
+            Build for resilience.
+          </p>
+
+          <p><span class="prompt">$</span> ./deploy.sh</p>
+          <p class="success-output">✓ Pipeline completed successfully</p>
+          <p><span class="prompt">$</span> <span class="cursor">▋</span></p>
+        </div>
+
+        <div class="terminal-footer">
+          <span>BUILD</span><span>TEST</span><span>SHIP</span>
+        </div>
+      </div>
+
+      <div class="hero-glow"></div>
+    </section>
+
+    <section class="section about" id="about">
+      <div class="section-heading">
+        <p class="eyebrow">01 / ABOUT</p>
+        <h2>Bridging code and <span class="gradient-text">cloud.</span></h2>
+      </div>
+
+      <div class="about-grid">
+        <article class="about-card">
+          <span class="card-icon">⌘</span>
+          <h3>Automation first</h3>
+          <p>
+            Turning repetitive manual work into reliable,
+            repeatable infrastructure and delivery workflows.
+          </p>
+        </article>
+
+        <article class="about-card">
+          <span class="card-icon">☁</span>
+          <h3>Cloud engineering</h3>
+          <p>
+            Building and operating cloud environments with a focus
+            on security, reliability, and maintainability.
+          </p>
+        </article>
+
+        <article class="about-card">
+          <span class="card-icon">↗</span>
+          <h3>Continuous delivery</h3>
+          <p>
+            Helping teams move from source code to tested,
+            versioned, deployable application releases.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section skills" id="skills">
+      <div class="section-heading">
+        <p class="eyebrow">02 / TOOLKIT</p>
+        <h2>Tools of the <span class="gradient-text">trade.</span></h2>
+        <p class="section-description">
+          Technologies I use to automate, build, deploy, and monitor systems.
+        </p>
+      </div>
+
+      <div class="skills-grid">
+        {% for name, tools in portfolio.skills %}
+        <article class="skill-card">
+          <span class="skill-index">{{ "%02d" | format(loop.index) }}</span>
+          <h3>{{ name }}</h3>
+          <p>{{ tools }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section projects" id="projects">
+      <div class="section-heading">
+        <p class="eyebrow">03 / SELECTED WORK</p>
+        <h2>Built with purpose<span class="gradient-text">.</span></h2>
+      </div>
+
+      <div class="projects-list">
+        {% for project in portfolio.projects %}
+        <article class="project-card">
+          <div class="project-number">{{ project.number }}</div>
+
+          <div class="project-content">
+            <h3>{{ project.name }}</h3>
+            <p>{{ project.description }}</p>
+            <div class="tags">
+              {% for tag in project.tags %}
+              <span>{{ tag }}</span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <span class="project-arrow" aria-hidden="true">↗</span>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section contact" id="contact">
+      <p class="eyebrow">04 / WHAT'S NEXT?</p>
+      <h2>Let's build something<br>
+        <span class="gradient-text">reliable.</span>
+      </h2>
+      <p>
+        Interested in cloud infrastructure, automation, or
+        engineering better delivery workflows?
+      </p>
+      <a class="button primary" href="mailto:YOUR_EMAIL@example.com">
+        Get in touch ↗
+      </a>
+      <p class="contact-note">
+        Replace the placeholder email with your preferred contact address.
+      </p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <a class="brand" href="#home">AA<span>.</span></a>
+    <p>Designed with intent. Deployed with automation.</p>
+    <span>v{{ version }}</span>
+  </footer>
+</body>
+</html>
