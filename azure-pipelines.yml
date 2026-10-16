@@ -1,3 +1,4 @@
+
 trigger:
   - main
 
@@ -30,4 +31,15 @@ steps:
       buildContext: '.'
       tags: |
         $(Build.BuildId)
-        latest
+
+  - task: AzureCLI@2
+    displayName: 'Deploy to Azure Container Apps'
+    inputs:
+      azureSubscription: 'azure-containerapp-deploy'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az containerapp update \
+          --name complete-azure-devops-app \
+          --resource-group rg-azure-devops-lab \
+          --image aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
