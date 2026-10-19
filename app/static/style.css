@@ -517,7 +517,7 @@ h1 {
 
 
 
-/* TEMPORARY ROLLBACK LAB: simulate a broken release */
+/* TEMPORARY ROLLBACK LAB: simulate a broken release
 body {
     background: #ffffff !important;
     color: #ffffff !important;
@@ -525,4 +525,4 @@ body {
 
 a {
     color: #ffffff !important;
-}
+} */
