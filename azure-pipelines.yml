@@ -5,104 +5,123 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
-steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.x'
-    displayName: 'Select Python version'
+stages:
+  # Stage 1: Build, test, publish and scan the image
+  - stage: BuildAndValidate
+    displayName: Build and Validate
+    jobs:
+      - job: Build
+        displayName: Build and Scan Docker Image
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.x'
+            displayName: Select Python version
 
-  - script: |
-      python -m pip install --upgrade pip
-      pip install -r app/requirements.txt
-      pip install pytest
-    displayName: 'Install dependencies'
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r app/requirements.txt
+              pip install pytest
+            displayName: Install dependencies
 
-  - script: |
-      pytest -v
-    displayName: 'Run unit tests'
+          - script: |
+              pytest -v
+            displayName: Run unit tests
 
-  - task: Docker@2
-    displayName: 'Build and push Docker image to ACR'
-    inputs:
-      command: 'buildAndPush'
-      containerRegistry: 'acr-wif-connection'
-      repository: 'complete-azure-devops'
-      Dockerfile: 'Dockerfile'
-      buildContext: '.'
-      tags: |
-        $(Build.BuildId)
+          - task: Docker@2
+            displayName: Build and push Docker image to ACR
+            inputs:
+              command: buildAndPush
+              containerRegistry: acr-wif-connection
+              repository: complete-azure-devops
+              Dockerfile: Dockerfile
+              buildContext: .
+              tags: |
+                $(Build.BuildId)
 
+          - script: |
+              sudo apt-get update
+              sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+              wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+                | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+              echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" \
+                | sudo tee /etc/apt/sources.list.d/trivy.list
+              sudo apt-get update
+              sudo apt-get install -y trivy
 
-  - script: |
-      sudo apt-get update
-      sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-      wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
-        | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-      echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" \
-        | sudo tee /etc/apt/sources.list.d/trivy.list
-      sudo apt-get update
-      sudo apt-get install -y trivy
-      # Report High vulnerabilities without blocking the pipeline
-      trivy image \
-        --severity HIGH \
-        --exit-code 0 \
-        aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
+              echo "Reporting High severity vulnerabilities..."
+              trivy image \
+                --severity HIGH \
+                --exit-code 0 \
+                aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
 
-      # Block deployment if Critical vulnerabilities are found
-      trivy image \
-        --severity CRITICAL \
-        --exit-code 1 \
-        aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
+              echo "Failing the pipeline if Critical vulnerabilities are found..."
+              trivy image \
+                --severity CRITICAL \
+                --exit-code 1 \
+                aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
+            displayName: Scan Docker image with Trivy
 
-    displayName: 'Scan Docker image for vulnerabilities'
+  # Stage 2: Deploy only after the production approval check
+  - stage: ProductionDeployment
+    displayName: Production Deployment
+    dependsOn: BuildAndValidate
+    condition: succeeded()
+    jobs:
+      - deployment: DeployToContainerApp
+        displayName: Deploy to Azure Container Apps
+        environment: production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: none
 
+                - task: AzureCLI@2
+                  displayName: Deploy image to Container Apps
+                  inputs:
+                    azureSubscription: azure-containerapp-deploy
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az containerapp update \
+                        --name complete-azure-devops-app \
+                        --resource-group rg-azure-devops-lab \
+                        --image aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
 
-  - task: AzureCLI@2
-    displayName: 'Deploy to Azure Container Apps'
-    inputs:
-      azureSubscription: 'azure-containerapp-deploy'
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        az containerapp update \
-          --name complete-azure-devops-app \
-          --resource-group rg-azure-devops-lab \
-          --image aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
+                - task: AzureCLI@2
+                  displayName: Verify deployment health
+                  inputs:
+                    azureSubscription: azure-containerapp-deploy
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      set -euo pipefail
 
-  
-  - task: AzureCLI@2
-    displayName: 'Verify deployment health'
-    inputs:
-      azureSubscription: 'azure-containerapp-deploy'
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        set -euo pipefail
+                      FQDN=$(az containerapp show \
+                        --name complete-azure-devops-app \
+                        --resource-group rg-azure-devops-lab \
+                        --query properties.configuration.ingress.fqdn \
+                        --output tsv)
 
-        FQDN=$(az containerapp show \
-          --name complete-azure-devops-app \
-          --resource-group rg-azure-devops-lab \
-          --query properties.configuration.ingress.fqdn \
-          --output tsv)
+                      if [ -z "$FQDN" ] || [ "$FQDN" = "None" ]; then
+                        echo "ERROR: Could not retrieve the Container App URL."
+                        exit 1
+                      fi
 
-        if [ -z "$FQDN" ] || [ "$FQDN" = "None" ]; then
-          echo "ERROR: Could not retrieve the Container App URL."
-          exit 1
-        fi
+                      URL="https://$FQDN/health"
+                      echo "Checking application health at $URL"
 
-        URL="https://$FQDN/health"
-        echo "Checking application health at $URL"
+                      for attempt in {1..12}; do
+                        if curl --fail --silent --show-error "$URL"; then
+                          echo ""
+                          echo "SUCCESS: Application health check passed."
+                          exit 0
+                        fi
 
-        for attempt in {1..12}; do
-          if curl --fail --silent --show-error "$URL"; then
-            echo ""
-            echo "SUCCESS: Application health check passed."
-            exit 0
-          fi
+                        echo "Attempt $attempt/12 failed. Retrying in 10 seconds..."
+                        sleep 10
+                      done
 
-          echo "Attempt $attempt/12 failed. Retrying in 10 seconds..."
-          sleep 10
-        done
-
-        echo "ERROR: Application health check failed after 12 attempts."
-        exit 1
+                      echo "ERROR: Application health check failed after 12 attempts."
+                      exit 1
