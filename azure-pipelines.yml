@@ -43,3 +43,41 @@ steps:
           --name complete-azure-devops-app \
           --resource-group rg-azure-devops-lab \
           --image aneesazuredevopsacr.azurecr.io/complete-azure-devops:$(Build.BuildId)
+
+  
+  - task: AzureCLI@2
+    displayName: 'Verify deployment health'
+    inputs:
+      azureSubscription: 'azure-containerapp-deploy'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        set -euo pipefail
+
+        FQDN=$(az containerapp show \
+          --name complete-azure-devops-app \
+          --resource-group rg-azure-devops-lab \
+          --query properties.configuration.ingress.fqdn \
+          --output tsv)
+
+        if [ -z "$FQDN" ] || [ "$FQDN" = "None" ]; then
+          echo "ERROR: Could not retrieve the Container App URL."
+          exit 1
+        fi
+
+        URL="https://$FQDN/health"
+        echo "Checking application health at $URL"
+
+        for attempt in {1..12}; do
+          if curl --fail --silent --show-error "$URL"; then
+            echo ""
+            echo "SUCCESS: Application health check passed."
+            exit 0
+          fi
+
+          echo "Attempt $attempt/12 failed. Retrying in 10 seconds..."
+          sleep 10
+        done
+
+        echo "ERROR: Application health check failed after 12 attempts."
+        exit 1
