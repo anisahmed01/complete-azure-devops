@@ -514,3 +514,15 @@ h1 {
     transition: none !important;
   }
 }
+
+
+
+/* TEMPORARY ROLLBACK LAB: simulate a broken release */
+body {
+    background: #ffffff !important;
+    color: #ffffff !important;
+}
+
+a {
+    color: #ffffff !important;
+}
